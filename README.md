@@ -39,7 +39,7 @@ Transform your terminal into a **supercharged DevOps command center** with this 
 ### One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thisiskicker/shell-configuration/main/setup-devops-shell.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thisiskicker/shell-configuration/refs/heads/master/setup-devops-shell.sh | bash
 ```
 
 ### Manual Installation
