@@ -65,6 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/thisiskicker/shell-configuration/re
    p10k configure
    ```
 
+> **Safe to re-run:** The script is idempotent. Already-installed components (Oh My Zsh, Powerlevel10k, plugins, fzf) are skipped. Existing `~/.zshrc` and `~/.p10k.zsh` files are backed up with a timestamp before being overwritten, and an existing `~/.p10k.zsh` is left untouched entirely.
+
 ## 📋 Prerequisites
 
 - **Root/sudo access** (for package installation)
@@ -166,7 +168,7 @@ glog='git log --oneline --graph --decorate --all'
 - **`Alt+C`** - Fuzzy search directories
 
 #### Smart History
-- 10,000 command history
+- 10,000 command history persisted to `~/.zsh_history`
 - Duplicate removal
 - Shared history across sessions
 - Ignore commands starting with space
@@ -269,6 +271,10 @@ plugins=(
 1. **Check for problematic plugins** in `~/.zshrc`
 2. **Disable unused completions**
 3. **Run Powerlevel10k in lean mode**
+4. **Rebuild the completion cache** — a stale cache can slow startup:
+   ```bash
+   rm ~/.zcompdump*; exec zsh
+   ```
 
 #### Theme Not Loading
 1. **Verify Powerlevel10k installation:**

@@ -35,7 +35,7 @@ print_error() {
 print_banner() {
     echo -e "${PURPLE}"
     echo "================================================"
-    echo "   🚀 DevOps Terminal Setup Script 🚀"
+    echo "   DevOps Terminal Setup Script"
     echo "   Zsh + Powerlevel10k + Oh My Zsh"
     echo "================================================"
     echo -e "${NC}"
@@ -60,7 +60,7 @@ detect_os() {
 # Install dependencies based on OS
 install_dependencies() {
     print_status "Installing dependencies..."
-    
+
     case $OS in
         "macos")
             if ! command -v brew &> /dev/null; then
@@ -74,7 +74,15 @@ install_dependencies() {
             sudo apt install -y zsh git curl wget fontconfig
             ;;
         "redhat")
-            sudo yum install -y zsh git curl wget fontconfig || sudo dnf install -y zsh git curl wget fontconfig
+            # Prefer dnf (RHEL 8+/Fedora) over the legacy yum.
+            if command -v dnf &> /dev/null; then
+                sudo dnf install -y zsh git curl wget fontconfig
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y zsh git curl wget fontconfig
+            else
+                print_error "No supported package manager found (dnf/yum)."
+                exit 1
+            fi
             ;;
         "arch")
             sudo pacman -Sy --noconfirm zsh git curl wget fontconfig
@@ -84,14 +92,14 @@ install_dependencies() {
             exit 1
             ;;
     esac
-    
+
     print_success "Dependencies installed!"
 }
 
 # Install Nerd Fonts (essential for Powerlevel10k icons)
 install_nerd_fonts() {
     print_status "Installing Nerd Fonts..."
-    
+
     FONT_DIR=""
     case $OS in
         "macos")
@@ -102,21 +110,24 @@ install_nerd_fonts() {
             mkdir -p "$FONT_DIR"
             ;;
     esac
-    
-    # Download MesloLGS NF fonts (recommended by Powerlevel10k)
-    cd /tmp
-    curl -fLo "MesloLGS NF Regular.ttf" https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
-    curl -fLo "MesloLGS NF Bold.ttf" https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
-    curl -fLo "MesloLGS NF Italic.ttf" https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
-    curl -fLo "MesloLGS NF Bold Italic.ttf" https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
-    
-    mv MesloLGS*.ttf "$FONT_DIR/"
-    
+
+    # Download MesloLGS NF fonts (recommended by Powerlevel10k).
+    # Run in a subshell so the `cd /tmp` does not change the working directory
+    # of the parent script.
+    (
+        cd /tmp
+        curl -fLo "MesloLGS NF Regular.ttf"     https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
+        curl -fLo "MesloLGS NF Bold.ttf"         https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
+        curl -fLo "MesloLGS NF Italic.ttf"       https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
+        curl -fLo "MesloLGS NF Bold Italic.ttf"  https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
+        mv MesloLGS*.ttf "$FONT_DIR/"
+    )
+
     # Refresh font cache on Linux
     if [[ "$OS" != "macos" ]]; then
         fc-cache -fv
     fi
-    
+
     print_success "Nerd Fonts installed!"
     print_warning "Please set your terminal font to 'MesloLGS NF' for the best experience!"
 }
@@ -124,120 +135,123 @@ install_nerd_fonts() {
 # Install Oh My Zsh
 install_oh_my_zsh() {
     print_status "Installing Oh My Zsh..."
-    
+
     if [[ -d "$HOME/.oh-my-zsh" ]]; then
         print_warning "Oh My Zsh already installed, backing up existing config..."
         cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
     fi
-    
+
     # Install Oh My Zsh non-interactively
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-    
+
     print_success "Oh My Zsh installed!"
 }
 
 # Install Powerlevel10k theme
 install_powerlevel10k() {
     print_status "Installing Powerlevel10k theme..."
-    
-    # Clone Powerlevel10k
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-    
+
+    P10K_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    if [[ ! -d "$P10K_DIR" ]]; then
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR"
+    else
+        print_warning "Powerlevel10k already installed, skipping."
+    fi
+
     print_success "Powerlevel10k installed!"
 }
 
 # Install useful Zsh plugins
 install_zsh_plugins() {
     print_status "Installing essential Zsh plugins..."
-    
+
     ZSH_CUSTOM=${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}
-    
+
     # zsh-autosuggestions
     if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]]; then
-        git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
+        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
     fi
-    
+
     # zsh-syntax-highlighting
     if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
-        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+        git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
     fi
-    
+
     # zsh-completions
     if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-completions" ]]; then
-        git clone https://github.com/zsh-users/zsh-completions $ZSH_CUSTOM/plugins/zsh-completions
+        git clone --depth=1 https://github.com/zsh-users/zsh-completions "$ZSH_CUSTOM/plugins/zsh-completions"
     fi
-    
-    # fzf for fuzzy finding (amazing for command history!)
+
+    # fzf for fuzzy finding
     if [[ ! -d "$HOME/.fzf" ]]; then
         git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
         ~/.fzf/install --all
     fi
-    
+
     print_success "Zsh plugins installed!"
 }
 
 # Configure autocomplete for DevOps tools
 configure_autocomplete() {
     print_status "Setting up autocomplete for DevOps tools..."
-    
+
     COMPLETION_DIR="$HOME/.zsh/completions"
     mkdir -p "$COMPLETION_DIR"
-    
+
     # kubectl completion (if kubectl is installed)
     if command -v kubectl &> /dev/null; then
         kubectl completion zsh > "$COMPLETION_DIR/_kubectl"
-        print_status "✅ kubectl autocomplete configured"
+        print_status "kubectl autocomplete configured"
     fi
-    
+
     # helm completion (if helm is installed)
     if command -v helm &> /dev/null; then
         helm completion zsh > "$COMPLETION_DIR/_helm"
-        print_status "✅ helm autocomplete configured"
+        print_status "helm autocomplete configured"
     fi
-    
+
     # terraform completion (if terraform is installed)
     if command -v terraform &> /dev/null; then
         terraform -install-autocomplete 2>/dev/null || true
-        print_status "✅ terraform autocomplete configured"
+        print_status "terraform autocomplete configured"
     fi
-    
+
     # docker completion (if docker is installed)
     if command -v docker &> /dev/null; then
         curl -fsSL https://raw.githubusercontent.com/docker/cli/master/contrib/completion/zsh/_docker > "$COMPLETION_DIR/_docker" 2>/dev/null || true
-        print_status "✅ docker autocomplete configured"
+        print_status "docker autocomplete configured"
     fi
-    
+
     # docker-compose completion
     if command -v docker-compose &> /dev/null; then
         curl -fsSL https://raw.githubusercontent.com/docker/compose/master/contrib/completion/zsh/_docker-compose > "$COMPLETION_DIR/_docker-compose" 2>/dev/null || true
-        print_status "✅ docker-compose autocomplete configured"
+        print_status "docker-compose autocomplete configured"
     fi
-    
+
     # AWS CLI completion (if aws is installed)
     if command -v aws &> /dev/null; then
-        # AWS CLI v2 has built-in completion
-        print_status "✅ AWS CLI autocomplete will be configured in .zshrc"
+        print_status "AWS CLI autocomplete will be configured in .zshrc"
     fi
-    
-    # gcloud completion (if gcloud is installed)
-    if command -v gcloud &> /dev/null; then
-        gcloud completion zsh > "$COMPLETION_DIR/_gcloud" 2>/dev/null || true
-        print_status "✅ gcloud autocomplete configured"
-    fi
-    
+
     # az completion (if azure cli is installed)
     if command -v az &> /dev/null; then
         az completion --shell zsh > "$COMPLETION_DIR/_az" 2>/dev/null || true
-        print_status "✅ Azure CLI autocomplete configured"
+        print_status "Azure CLI autocomplete configured"
     fi
-    
+
+    # gcloud: completion is sourced directly from the Cloud SDK's own
+    # completion file in .zshrc — no separate generation step needed.
+
     print_success "DevOps tools autocomplete configured!"
 }
 
 # Configure .zshrc with our awesome setup
 configure_zshrc() {
     print_status "Configuring .zshrc with DevOps-optimized settings..."
-    
+
+    # Backup existing .zshrc before overwriting
+    [[ -f "$HOME/.zshrc" ]] && cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
+
     cat > "$HOME/.zshrc" << 'EOF'
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -250,7 +264,18 @@ export ZSH="$HOME/.oh-my-zsh"
 # Set name of the theme to load
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# Plugins for DevOps productivity
+# Add custom completions to fpath BEFORE oh-my-zsh is sourced so that
+# compinit (called internally by OMZ) picks them up on the first load.
+fpath=($HOME/.zsh/completions $fpath)
+
+# zsh-autosuggestions settings must be set before OMZ sources the plugin.
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+
+# Plugins for DevOps productivity.
+# Note: fzf is loaded via ~/.fzf.zsh at the bottom of this file because the
+# script installs fzf via git clone. Do not add it to the plugins list as well
+# or it will be initialised twice.
 plugins=(
     git
     docker
@@ -277,7 +302,6 @@ plugins=(
     jsontools
     urltools
     encode64
-    fzf
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -285,13 +309,6 @@ source $ZSH/oh-my-zsh.sh
 # ===============================================
 # AUTOCOMPLETE CONFIGURATION (DevOps Edition!)
 # ===============================================
-
-# Enable completion system
-autoload -Uz compinit
-compinit
-
-# Add custom completions directory to fpath
-fpath=($HOME/.zsh/completions $fpath)
 
 # Case-insensitive completion
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
@@ -322,35 +339,22 @@ if command -v aws &> /dev/null; then
     complete -C aws_completer aws
 fi
 
-# Azure CLI completion  
-if [[ -f /usr/local/etc/bash_completion.d/az ]]; then
+# Azure CLI and Terraform both need bashcompinit — load it once for both.
+if command -v az &> /dev/null || command -v terraform &> /dev/null; then
     autoload -U +X bashcompinit && bashcompinit
-    source /usr/local/etc/bash_completion.d/az
+    if command -v az &> /dev/null && [[ -f /usr/local/etc/bash_completion.d/az ]]; then
+        source /usr/local/etc/bash_completion.d/az
+    fi
+    if command -v terraform &> /dev/null; then
+        complete -C terraform terraform
+        complete -C terraform tf  # Enable completion for 'tf' alias
+    fi
 fi
 
-# Google Cloud completion
+# Google Cloud completion (sourced from the SDK's own completion file)
 if [[ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]]; then
     source "$HOME/google-cloud-sdk/completion.zsh.inc"
 fi
-
-# Terraform completion (if installed via terraform -install-autocomplete)
-if [[ -f ~/.terraform.d/terraform_autocomplete ]]; then
-    autoload -U +X bashcompinit && bashcompinit
-    complete -C terraform terraform
-    complete -C terraform tf  # Enable completion for 'tf' alias
-fi
-
-# Docker and Docker Compose completion
-if [[ -f ~/.zsh/completions/_docker ]]; then
-    source ~/.zsh/completions/_docker
-fi
-if [[ -f ~/.zsh/completions/_docker-compose ]]; then
-    source ~/.zsh/completions/_docker-compose
-fi
-
-# Enable history-based autosuggestions
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
 # User configuration
 export LANG=en_US.UTF-8
@@ -414,7 +418,8 @@ export PATH="$HOME/.local/bin:$PATH"
 export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
 export FZF_CTRL_T_OPTS="--preview 'cat {}' --preview-window=right:60%"
 
-# History configuration for better autocomplete
+# History configuration
+HISTFILE="$HOME/.zsh_history"
 HISTSIZE=10000
 SAVEHIST=10000
 setopt HIST_IGNORE_DUPS
@@ -425,17 +430,22 @@ setopt SHARE_HISTORY
 # Load Powerlevel10k configuration
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-# Load FZF if installed
+# Load FZF (installed via git clone — sourced here instead of the OMZ plugin)
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 EOF
-    
+
     print_success ".zshrc configured with comprehensive autocomplete support!"
 }
 
 # Create a basic Powerlevel10k config
 create_p10k_config() {
     print_status "Creating Powerlevel10k configuration..."
-    
+
+    if [[ -f "$HOME/.p10k.zsh" ]]; then
+        print_warning "~/.p10k.zsh already exists, skipping. Run 'p10k configure' to customize."
+        return
+    fi
+
     cat > "$HOME/.p10k.zsh" << 'EOF'
 # Powerlevel10k DevOps Configuration
 if [[ -o 'aliases' ]]; then
@@ -511,20 +521,20 @@ fi
 (( ! p10k_lean_restore_aliases )) || setopt aliases
 'builtin' 'unset' 'p10k_lean_restore_aliases'
 EOF
-    
+
     print_success "Powerlevel10k configuration created!"
 }
 
 # Set Zsh as default shell
 set_default_shell() {
     print_status "Setting Zsh as default shell..."
-    
+
     if [[ "$SHELL" != "$(which zsh)" ]]; then
         # Add zsh to /etc/shells if it's not there
         if ! grep -q "$(which zsh)" /etc/shells; then
             echo "$(which zsh)" | sudo tee -a /etc/shells
         fi
-        
+
         # Change default shell
         chsh -s "$(which zsh)"
         print_success "Default shell set to Zsh!"
@@ -537,9 +547,9 @@ set_default_shell() {
 # Main execution
 main() {
     print_banner
-    
+
     print_status "Starting DevOps terminal setup..."
-    
+
     detect_os
     install_dependencies
     install_nerd_fonts
@@ -550,34 +560,34 @@ main() {
     configure_zshrc
     create_p10k_config
     set_default_shell
-    
+
     echo -e "${GREEN}"
-    echo "🎉 SUCCESS! Your DevOps terminal is ready!"
+    echo "SUCCESS! Your DevOps terminal is ready!"
     echo "================================================"
-    echo "✅ Zsh installed and configured"
-    echo "✅ Oh My Zsh framework installed"
-    echo "✅ Powerlevel10k theme activated"
-    echo "✅ Essential DevOps plugins enabled"
-    echo "✅ Comprehensive autocomplete configured"
-    echo "✅ Nerd Fonts installed"
-    echo "✅ Productivity aliases configured"
-    echo "✅ FZF fuzzy finder installed"
+    echo "Zsh installed and configured"
+    echo "Oh My Zsh framework installed"
+    echo "Powerlevel10k theme activated"
+    echo "Essential DevOps plugins enabled"
+    echo "Comprehensive autocomplete configured"
+    echo "Nerd Fonts installed"
+    echo "Productivity aliases configured"
+    echo "FZF fuzzy finder installed"
     echo ""
-    echo "🚀 AUTOCOMPLETE FEATURES:"
-    echo "• kubectl (k) - Tab complete pods, services, etc."
-    echo "• terraform (tf) - Complete resources and commands"
-    echo "• docker & docker-compose - Complete containers, images"
-    echo "• AWS, Azure, GCloud CLI - Complete all commands"
-    echo "• Git - Complete branches, files, commands"
-    echo "• History-based suggestions as you type!"
+    echo "AUTOCOMPLETE FEATURES:"
+    echo "- kubectl (k) - Tab complete pods, services, etc."
+    echo "- terraform (tf) - Complete resources and commands"
+    echo "- docker & docker-compose - Complete containers, images"
+    echo "- AWS, Azure, GCloud CLI - Complete all commands"
+    echo "- Git - Complete branches, files, commands"
+    echo "- History-based suggestions as you type!"
     echo ""
-    echo "📝 NEXT STEPS:"
+    echo "NEXT STEPS:"
     echo "1. Restart your terminal or run: exec zsh"
     echo "2. Set terminal font to 'MesloLGS NF'"
     echo "3. Run 'p10k configure' to customize your prompt"
     echo "4. Try typing 'k get po' and press TAB for autocomplete!"
     echo "5. Use Ctrl+R for fuzzy history search"
-    echo "6. Enjoy your supercharged DevOps terminal! 🚀"
+    echo "6. Enjoy your supercharged DevOps terminal!"
     echo -e "${NC}"
 }
 
